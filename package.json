@@ -1,0 +1,358 @@
+{
+  "name": "exdiff",
+  "displayName": "ExDiff",
+  "description": "Review Git revisions in VS Code with real on-disk snapshots, so hover, Go to Definition, Find References and diagnostics keep working on both sides of the diff.",
+  "version": "0.2.3",
+  "publisher": "xaxys",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xaxys/exdiff-vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/xaxys/exdiff-vscode/issues"
+  },
+  "homepage": "https://github.com/xaxys/exdiff-vscode#readme",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers"
+  ],
+  "keywords": [
+    "git",
+    "diff",
+    "compare",
+    "commit",
+    "amend",
+    "rebase",
+    "range-diff",
+    "language server",
+    "lsp",
+    "snapshot",
+    "code review"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#171C28",
+    "theme": "dark"
+  },
+  "main": "./out/extension.js",
+  "l10n": "./l10n",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "test": "node --test test/",
+    "test:integration": "node integration/run-tests.cjs",
+    "package": "vsce package"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "exdiff.openFileWithBase",
+        "title": "%command.openFileWithBase.title%",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "exdiff.openFileWithAmendPrev",
+        "title": "%command.openFileWithAmendPrev.title%"
+      },
+      {
+        "command": "exdiff.openFileWithPreviousCommit",
+        "title": "%command.openFileWithPreviousCommit.title%",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "exdiff.openFileWorkingTree",
+        "title": "%command.openFileWorkingTree.title%"
+      },
+      {
+        "command": "exdiff.openFileStaged",
+        "title": "%command.openFileStaged.title%"
+      },
+      {
+        "command": "exdiff.showChanges",
+        "title": "%command.showChanges.title%",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "exdiff.compareRefs",
+        "title": "%command.compareRefs.title%",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "exdiff.showRebaseChanges",
+        "title": "%command.showRebaseChanges.title%",
+        "icon": "$(history)"
+      },
+      {
+        "command": "exdiff.openBaseSide",
+        "title": "%command.openBaseSide.title%",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "exdiff.swapSides",
+        "title": "%command.swapSides.title%",
+        "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "exdiff.pickBaseRef",
+        "title": "%command.pickBaseRef.title%",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "exdiff.refresh",
+        "title": "%command.refresh.title%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "exdiff.attachSnapshots",
+        "title": "%command.attachSnapshots.title%"
+      },
+      {
+        "command": "exdiff.detachSnapshots",
+        "title": "%command.detachSnapshots.title%"
+      },
+      {
+        "command": "exdiff.cleanSnapshots",
+        "title": "%command.cleanSnapshots.title%"
+      },
+      {
+        "command": "exdiff.pruneSnapshots",
+        "title": "%command.pruneSnapshots.title%",
+        "icon": "$(trash)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "exdiff",
+          "title": "%viewContainer.exdiff.title%",
+          "icon": "media/exdiff.svg"
+        }
+      ]
+    },
+    "views": {
+      "exdiff": [
+        {
+          "id": "exdiff.changes",
+          "name": "%view.changes.name%"
+        },
+        {
+          "id": "exdiff.rebase",
+          "name": "%view.rebase.name%"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "exdiff.openFileWithBase",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        },
+        {
+          "command": "exdiff.openBaseSide",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "exdiff.openFileWithBase",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        },
+        {
+          "command": "exdiff.openFileWithAmendPrev",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        },
+        {
+          "command": "exdiff.openFileWithPreviousCommit",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        },
+        {
+          "command": "exdiff.openFileWorkingTree",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        },
+        {
+          "command": "exdiff.openFileStaged",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        },
+        {
+          "command": "exdiff.openBaseSide",
+          "when": "resourceScheme == file",
+          "group": "exdiff"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "exdiff.openFileWithBase",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "exdiff.refresh",
+          "when": "view == exdiff.changes",
+          "group": "navigation"
+        },
+        {
+          "command": "exdiff.pickBaseRef",
+          "when": "view == exdiff.changes",
+          "group": "navigation"
+        },
+        {
+          "command": "exdiff.swapSides",
+          "when": "view == exdiff.changes",
+          "group": "navigation"
+        },
+        {
+          "command": "exdiff.refresh",
+          "when": "view == exdiff.rebase",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "exdiff.openFileWithBase",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.openFileWithAmendPrev",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.openFileWithPreviousCommit",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.openFileWorkingTree",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.openFileStaged",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.showChanges",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.compareRefs",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.showRebaseChanges",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.openBaseSide",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.swapSides",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.pickBaseRef",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.refresh",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.attachSnapshots",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.detachSnapshots",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.cleanSnapshots",
+          "when": "true"
+        },
+        {
+          "command": "exdiff.pruneSnapshots",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "exdiff.baseRef": {
+          "type": "string",
+          "default": "HEAD~1",
+          "markdownDescription": "%setting.baseRef.description%"
+        },
+        "exdiff.snapshotDir": {
+          "type": "string",
+          "default": "${repoRoot}/.exdiff",
+          "markdownDescription": "%setting.snapshotDir.description%"
+        },
+        "exdiff.autoAttach": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "%setting.autoAttach.ask.description%",
+            "%setting.autoAttach.always.description%",
+            "%setting.autoAttach.never.description%"
+          ],
+          "default": "ask",
+          "markdownDescription": "%setting.autoAttach.description%"
+        },
+        "exdiff.rightSide": {
+          "type": "string",
+          "enum": [
+            "workingTree",
+            "ref"
+          ],
+          "enumDescriptions": [
+            "%setting.rightSide.workingTree.description%",
+            "%setting.rightSide.ref.description%"
+          ],
+          "default": "workingTree",
+          "markdownDescription": "%setting.rightSide.description%"
+        },
+        "exdiff.gitPath": {
+          "type": "string",
+          "default": "git",
+          "markdownDescription": "%setting.gitPath.description%"
+        },
+        "exdiff.maxFilesInTree": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 1,
+          "markdownDescription": "%setting.maxFilesInTree.description%"
+        },
+        "exdiff.snapshotRetentionDays": {
+          "type": "number",
+          "default": 7,
+          "minimum": 0,
+          "markdownDescription": "%setting.snapshotRetentionDays.description%"
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^3.1.0",
+    "typescript": "^5.9.3"
+  }
+}
