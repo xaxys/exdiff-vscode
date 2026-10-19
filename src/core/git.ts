@@ -173,54 +173,135 @@ export async function currentBranch(repo: RepoInfo, gitPath?: string): Promise<s
   return name.length > 0 ? name : null;
 }
 
+/** `true` when `ancestor` is an ancestor of (or equal to) `descendant`. */
+async function isAncestor(
+  repo: RepoInfo,
+  ancestor: string,
+  descendant: string,
+  gitPath?: string,
+): Promise<boolean> {
+  const result = await execGit(['merge-base', '--is-ancestor', ancestor, descendant], {
+    cwd: repo.root,
+    gitPath,
+  });
+  return result.exitCode === 0;
+}
+
+/** Human-readable label for a reflog start point. */
+function baseRefLabel(start: string): string {
+  if (!start || start === 'HEAD') return 'fork';
+  if (/^[0-9a-f]{7,40}$/i.test(start)) return `fork@${start.slice(0, 7)}`;
+  return start.replace(/^refs\/heads\//, '').replace(/^refs\/remotes\//, '');
+}
+
 /**
- * Picks a sensible base branch for `auto`:
- * the remote default branches (`origin/HEAD`, `upstream/HEAD`), then
- * `origin|upstream/main|master`, then local `main` / `master`.
+ * Fork point recorded when the current branch was created.
  *
- * The current local branch is skipped so `auto` does not silently resolve to
- * `HEAD` on the branch that is being reviewed.
+ * `git reflog show <branch>` keeps a `branch: Created from <start>` entry. The
+ * entry's commit is the parent tip at creation; prefer it while it is still an
+ * ancestor of HEAD (amends do not change it). If the branch was rebased onto a
+ * new base, fall back to the merge-base with the named start ref.
  */
-export async function detectBaseRef(repo: RepoInfo, gitPath?: string): Promise<string | null> {
-  const [originHead, upstreamHead, head] = await Promise.all([
-    execGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
-      cwd: repo.root,
-      gitPath,
-    }),
-    execGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/upstream/HEAD'], {
-      cwd: repo.root,
-      gitPath,
-    }),
-    currentBranch(repo, gitPath),
-  ]);
+async function creationFork(repo: RepoInfo, gitPath?: string): Promise<ResolvedBase | null> {
+  const branch = await currentBranch(repo, gitPath);
+  if (!branch) return null;
 
-  const candidates = [
-    originHead.exitCode === 0 ? originHead.stdout.trim() : '',
-    upstreamHead.exitCode === 0 ? upstreamHead.stdout.trim() : '',
-    'origin/main',
-    'origin/master',
-    'upstream/main',
-    'upstream/master',
-    'main',
-    'master',
-  ];
+  const result = await execGit(
+    ['reflog', 'show', '--format=%H%x00%gs', `refs/heads/${branch}`],
+    { cwd: repo.root, gitPath },
+  );
+  if (result.exitCode !== 0) return null;
 
-  const seen = new Set<string>();
-  for (const candidate of candidates) {
-    if (!candidate || seen.has(candidate) || candidate === head) continue;
-    seen.add(candidate);
-    if (await revParse(repo, candidate, gitPath)) return candidate;
+  for (const line of result.stdout.split(/\r?\n/)) {
+    const separator = line.indexOf('\0');
+    if (separator <= 0) continue;
+
+    const sha = line.slice(0, separator).trim();
+    const subject = line.slice(separator + 1);
+    const match = /^branch: Created from (.+)$/.exec(subject);
+    if (!match) continue;
+
+    const start = match[1].trim();
+    const label = baseRefLabel(start);
+    const display = label === 'fork' && sha ? `fork@${sha.slice(0, 7)}` : label;
+
+    if (sha && (await isAncestor(repo, sha, 'HEAD', gitPath))) {
+      return { ref: display, sha, mergeBase: true };
+    }
+
+    if (start && start !== 'HEAD') {
+      const tip = await revParse(repo, start, gitPath);
+      if (tip) {
+        const base = await mergeBase(repo, start, 'HEAD', gitPath);
+        return { ref: label, sha: base ?? tip, mergeBase: base !== null };
+      }
+    }
+    return null;
   }
   return null;
+}
+
+/**
+ * Nearest fork point among local and remote branches when the reflog has no
+ * creation entry (cloned refs, expired reflogs, detached HEAD). Picks the
+ * branch whose merge-base with HEAD has the fewest commits in between.
+ */
+async function nearestBranchFork(repo: RepoInfo, gitPath?: string): Promise<ResolvedBase | null> {
+  const head = await headSha(repo, gitPath);
+  if (!head) return null;
+
+  const refs = await execGit(
+    [
+      'for-each-ref',
+      '--sort=-committerdate',
+      '--count=50',
+      '--format=%(refname)',
+      'refs/heads',
+      'refs/remotes',
+    ],
+    { cwd: repo.root, gitPath },
+  );
+  if (refs.exitCode !== 0) return null;
+
+  const branch = await currentBranch(repo, gitPath);
+  const current = branch ? `refs/heads/${branch}` : '';
+  const seen = new Set<string>();
+  let best: { ref: string; sha: string; distance: number } | null = null;
+
+  for (const raw of refs.stdout.split(/\r?\n/)) {
+    const ref = raw.trim();
+    if (!ref || ref === current || ref.endsWith('/HEAD') || seen.has(ref)) continue;
+    seen.add(ref);
+
+    const base = await mergeBase(repo, ref, 'HEAD', gitPath);
+    if (!base || base === head) continue;
+
+    let distance: number;
+    try {
+      distance = await revListCount(repo, `${base}..HEAD`, gitPath);
+    } catch {
+      continue;
+    }
+    if (distance <= 0) continue;
+
+    if (!best || distance < best.distance) {
+      best = { ref, sha: base, distance };
+      if (distance === 1) break;
+    }
+  }
+
+  if (!best) return null;
+  return { ref: baseRefLabel(best.ref), sha: best.sha, mergeBase: true };
 }
 
 /**
  * Resolves `exdiff.baseRef` to a commit and, when possible, the merge-base
  * (fork point) with `HEAD`.
  *
- * `auto` detects a base branch and falls back to `HEAD~1`. An explicit ref is
- * used as-is; `sha` is its merge-base with `HEAD` (or its tip when the
- * histories are unrelated).
+ * `auto` uses the current branch's creation reflog (`branch: Created from …`),
+ * then the nearest merge-base among local/remote branches, then `HEAD~1`. An
+ * explicit ref is used as-is; `sha` is its merge-base with `HEAD` (or its tip
+ * when the histories are unrelated).
  */
 export async function resolveBase(
   repo: RepoInfo,
@@ -230,12 +311,39 @@ export async function resolveBase(
   const requested = configuredRef.trim() || 'auto';
   if (requested !== 'auto') return await resolveBaseRef(repo, requested, gitPath);
 
-  const detected = await detectBaseRef(repo, gitPath);
-  if (detected) {
-    const resolved = await resolveBaseRef(repo, detected, gitPath);
-    if (resolved) return resolved;
+  const created = await creationFork(repo, gitPath);
+  if (created) {
+    const createdDistance = await distanceToHead(repo, created.sha, gitPath);
+    // One commit since the fork is the best possible non-empty base; no need
+    // to scan every branch (the common amend workflow).
+    if (createdDistance <= 1) return created;
   }
-  return await resolveBaseRef(repo, 'HEAD~1', gitPath);
+
+  const nearest = await nearestBranchFork(repo, gitPath);
+  const candidates = [created, nearest].filter((entry): entry is ResolvedBase => entry !== null);
+  if (candidates.length === 0) return await resolveBaseRef(repo, 'HEAD~1', gitPath);
+
+  // Prefer the fork point closest to HEAD. After a rebase the original creation
+  // point is older than the new base, so the nearest branch fork wins.
+  let best = candidates[0];
+  let bestDistance = await distanceToHead(repo, best.sha, gitPath);
+  for (const candidate of candidates.slice(1)) {
+    const distance = await distanceToHead(repo, candidate.sha, gitPath);
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+async function distanceToHead(repo: RepoInfo, sha: string, gitPath?: string): Promise<number> {
+  if (!sha) return Number.POSITIVE_INFINITY;
+  try {
+    return await revListCount(repo, `${sha}..HEAD`, gitPath);
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
 }
 
 async function resolveBaseRef(

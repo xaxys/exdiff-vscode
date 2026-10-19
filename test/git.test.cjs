@@ -571,7 +571,7 @@ test('git() throws GitError and execGit() reports failures without throwing', as
   assert.ok(missingBinary.stderr.length > 0, 'a spawn failure must be reported in stderr');
 });
 
-test('resolveBase uses the fork point of a base branch and HEAD', async (t) => {
+test('resolveBase auto uses the current branch creation point', async (t) => {
   const repo = await createRepo({ initialCommit: false });
   t.after(() => cleanup(repo));
 
@@ -587,14 +587,66 @@ test('resolveBase uses the fork point of a base branch and HEAD', async (t) => {
 
   const auto = await resolveBase(repo.repoInfo, 'auto');
   assert.ok(auto, 'auto must resolve a base');
-  assert.equal(auto.ref, 'main');
-  assert.equal(auto.sha, fork, 'the base must be the merge-base, not the main tip');
+  assert.match(auto.ref, /^fork@/, 'created-from-HEAD branches are labelled with the fork commit');
+  assert.equal(auto.sha, fork, 'the base must be the creation point, not the main tip');
   assert.equal(auto.mergeBase, true);
 
   const explicit = await resolveBase(repo.repoInfo, 'main');
   assert.ok(explicit);
   assert.equal(explicit.sha, fork);
   assert.equal(explicit.mergeBase, true);
+});
+
+test('resolveBase auto finds an arbitrary parent branch from the reflog', async (t) => {
+  const repo = await createRepo({ initialCommit: false });
+  t.after(() => cleanup(repo));
+
+  commitFile(repo, 'root.txt', 'root\n', 'root');
+  git(repo, ['checkout', '-b', 'team/base']);
+  commitFile(repo, 'team.txt', 'team\n', 'team base');
+  const fork = git(repo, ['rev-parse', 'HEAD']).trim();
+
+  git(repo, ['checkout', '-b', 'feature', 'team/base']);
+  commitFile(repo, 'feature.txt', 'feature\n', 'feature work');
+
+  // Advance the parent after the branch was created; the fork point must stay.
+  git(repo, ['checkout', 'team/base']);
+  commitFile(repo, 'team2.txt', 'team2\n', 'team base moved');
+  git(repo, ['checkout', 'feature']);
+
+  const auto = await resolveBase(repo.repoInfo, 'auto');
+  assert.ok(auto);
+  assert.equal(auto.ref, 'team/base');
+  assert.equal(auto.sha, fork, 'the fork point must not follow the parent branch tip');
+  assert.equal(auto.mergeBase, true);
+});
+
+test('resolveBase auto falls back to the nearest branch when the reflog is gone', async (t) => {
+  const repo = await createRepo({ initialCommit: false });
+  t.after(() => cleanup(repo));
+
+  commitFile(repo, 'root.txt', 'root\n', 'root');
+
+  git(repo, ['checkout', '-b', 'team/base']);
+  commitFile(repo, 'team.txt', 'team\n', 'team base');
+  const fork = git(repo, ['rev-parse', 'HEAD']).trim();
+
+  git(repo, ['checkout', '-b', 'feature', 'team/base']);
+  commitFile(repo, 'f1.txt', 'f1\n', 'feature 1');
+  commitFile(repo, 'f2.txt', 'f2\n', 'feature 2');
+
+  git(repo, ['checkout', 'main']);
+  commitFile(repo, 'main.txt', 'main\n', 'main moved');
+  git(repo, ['checkout', 'feature']);
+
+  // Drop the creation entry: auto must look at all branches instead.
+  fs.rmSync(path.join(repo.dir, '.git', 'logs', 'refs', 'heads', 'feature'), { force: true });
+
+  const auto = await resolveBase(repo.repoInfo, 'auto');
+  assert.ok(auto);
+  assert.equal(auto.sha, fork, 'the nearest branch fork is the root commit');
+  assert.equal(auto.mergeBase, true);
+  assert.notEqual(auto.sha, git(repo, ['rev-parse', 'HEAD~1']).trim(), 'HEAD~1 is not the branch fork');
 });
 
 test('resolveBase auto falls back to HEAD~1 on the only branch', async (t) => {

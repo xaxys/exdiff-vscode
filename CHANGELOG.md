@@ -2,6 +2,19 @@
 
 All notable changes to the ExDiff extension are documented here.
 
+## 0.2.5
+
+### Fixed
+
+- `auto` no longer assumes `main` or `master`. It reads the current branch's
+  reflog creation entry (`branch: Created from …`) to find the real parent
+  branch/commit, falls back to the nearest merge-base among local and remote
+  branches, then `HEAD~1`. This handles branches forked from arbitrary branches
+  (for example `team/feature-a`) and amended branches.
+
+> 0.2.4 introduced fork-point comparison but used main/master heuristics.
+> 0.2.5 replaces that heuristic.
+
 ## 0.2.4
 
 ### Added

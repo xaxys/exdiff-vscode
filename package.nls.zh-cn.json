@@ -19,7 +19,7 @@
   "view.changes.name": "改动",
   "view.rebase.name": "Rebase 改动",
   "configuration.title": "ExDiff",
-  "setting.baseRef.description": "用作比较 base 的分支或 revision。`auto` 会依次检测 `origin/HEAD` / `upstream/HEAD`、`origin/main`、`origin/master`、`upstream/main`、`upstream/master`、`main`、`master`，最后回退到 `HEAD~1`。**ExDiff: Open Changes with Base** 从它与 `HEAD` 的 merge-base（分叉点）开始比较。",
+  "setting.baseRef.description": "用作比较 base 的分支或 revision。`auto` 会读取当前分支的创建 reflog（`branch: Created from …`）找到父分支/commit；没有时取本地/远程分支中最近的 merge-base；最后回退 `HEAD~1`。**ExDiff: Open Changes with Base** 从它与 `HEAD` 的 merge-base（分叉点）开始比较。也可以显式设置 `origin/main` 等分支覆盖。",
   "setting.snapshotDir.description": "存放物化快照的目录。支持的变量：`${repoRoot}`（仓库根目录）、`${repoParent}`（仓库父目录）、`${repoName}`（仓库文件夹名）和 `${slot}`（快照槽位）。默认 `${repoRoot}/.exdiff`，位于仓库内并带自忽略 `.gitignore`，`git status` 保持干净。相对路径模板按仓库根目录解析。",
   "setting.snapshotRetentionDays.description": "快照的保留天数，超过后会被自动清理。启动时只清理临时的 `ref-*` 槽位；**ExDiff: Prune Stale Snapshots** 会清理所有过期槽位。设为 `0` 可关闭自动清理。",
   "setting.autoAttach.description": "是否把快照目录作为额外的工作区文件夹加入工作区。正是这一点让语言功能（hover、Go to Definition、Find References、诊断）能在 diff 的 base 一侧生效。",

@@ -2,7 +2,7 @@
   "name": "exdiff",
   "displayName": "ExDiff",
   "description": "Review Git revisions in VS Code with real on-disk snapshots, so hover, Go to Definition, Find References and diagnostics keep working on both sides of the diff.",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "publisher": "xaxys",
   "license": "MIT",
   "repository": {
