@@ -43,7 +43,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 ## 安装
 
 - **Marketplace**：从 Visual Studio Marketplace 安装 [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff)。
-- **VSIX**：`code --install-extension exdiff-0.2.5.vsix`
+- **VSIX**：`code --install-extension exdiff-0.2.6.vsix`
 
 安装后重载窗口。
 

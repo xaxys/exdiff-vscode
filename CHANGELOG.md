@@ -2,6 +2,14 @@
 
 All notable changes to the ExDiff extension are documented here.
 
+## 0.2.6
+
+### Fixed
+
+- When the branch creation point and the nearest branch fork differ, use the
+  candidate closest to `HEAD`. After a rebase this selects the new base fork
+  instead of the original creation commit.
+
 ## 0.2.5
 
 ### Fixed

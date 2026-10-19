@@ -43,7 +43,7 @@ ExDiff only reads Git objects. It never modifies your working tree, index, refs 
 ## Install
 
 - **Marketplace**: install [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff) from the Visual Studio Marketplace.
-- **VSIX**: `code --install-extension exdiff-0.2.5.vsix`
+- **VSIX**: `code --install-extension exdiff-0.2.6.vsix`
 
 Reload the window after installing.
 
