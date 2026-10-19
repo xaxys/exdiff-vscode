@@ -139,6 +139,116 @@ export async function headSha(repo: RepoInfo, gitPath?: string): Promise<string 
   return sha.length > 0 ? sha : null;
 }
 
+/** A base ref resolved to its fork point with `HEAD`. */
+export interface ResolvedBase {
+  /** Ref that was used, for example `origin/main`, `main` or `HEAD~1`. */
+  ref: string;
+  /** Merge-base commit with `HEAD`, or the ref tip when there is no common ancestor. */
+  sha: string;
+  /** True when `sha` is the merge-base rather than the ref tip. */
+  mergeBase: boolean;
+}
+
+/** `git merge-base a b`, or `null` when there is no common ancestor / a ref is invalid. */
+export async function mergeBase(
+  repo: RepoInfo,
+  a: string,
+  b: string,
+  gitPath?: string,
+): Promise<string | null> {
+  const result = await execGit(['merge-base', a, b], { cwd: repo.root, gitPath });
+  if (result.exitCode !== 0) return null;
+  const sha = result.stdout.trim();
+  return sha.length > 0 ? sha : null;
+}
+
+/** Current branch name, or `null` for a detached HEAD / unborn branch. */
+export async function currentBranch(repo: RepoInfo, gitPath?: string): Promise<string | null> {
+  const result = await execGit(['symbolic-ref', '--quiet', '--short', 'HEAD'], {
+    cwd: repo.root,
+    gitPath,
+  });
+  if (result.exitCode !== 0) return null;
+  const name = result.stdout.trim();
+  return name.length > 0 ? name : null;
+}
+
+/**
+ * Picks a sensible base branch for `auto`:
+ * the remote default branches (`origin/HEAD`, `upstream/HEAD`), then
+ * `origin|upstream/main|master`, then local `main` / `master`.
+ *
+ * The current local branch is skipped so `auto` does not silently resolve to
+ * `HEAD` on the branch that is being reviewed.
+ */
+export async function detectBaseRef(repo: RepoInfo, gitPath?: string): Promise<string | null> {
+  const [originHead, upstreamHead, head] = await Promise.all([
+    execGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], {
+      cwd: repo.root,
+      gitPath,
+    }),
+    execGit(['symbolic-ref', '--quiet', '--short', 'refs/remotes/upstream/HEAD'], {
+      cwd: repo.root,
+      gitPath,
+    }),
+    currentBranch(repo, gitPath),
+  ]);
+
+  const candidates = [
+    originHead.exitCode === 0 ? originHead.stdout.trim() : '',
+    upstreamHead.exitCode === 0 ? upstreamHead.stdout.trim() : '',
+    'origin/main',
+    'origin/master',
+    'upstream/main',
+    'upstream/master',
+    'main',
+    'master',
+  ];
+
+  const seen = new Set<string>();
+  for (const candidate of candidates) {
+    if (!candidate || seen.has(candidate) || candidate === head) continue;
+    seen.add(candidate);
+    if (await revParse(repo, candidate, gitPath)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Resolves `exdiff.baseRef` to a commit and, when possible, the merge-base
+ * (fork point) with `HEAD`.
+ *
+ * `auto` detects a base branch and falls back to `HEAD~1`. An explicit ref is
+ * used as-is; `sha` is its merge-base with `HEAD` (or its tip when the
+ * histories are unrelated).
+ */
+export async function resolveBase(
+  repo: RepoInfo,
+  configuredRef: string,
+  gitPath?: string,
+): Promise<ResolvedBase | null> {
+  const requested = configuredRef.trim() || 'auto';
+  if (requested !== 'auto') return await resolveBaseRef(repo, requested, gitPath);
+
+  const detected = await detectBaseRef(repo, gitPath);
+  if (detected) {
+    const resolved = await resolveBaseRef(repo, detected, gitPath);
+    if (resolved) return resolved;
+  }
+  return await resolveBaseRef(repo, 'HEAD~1', gitPath);
+}
+
+async function resolveBaseRef(
+  repo: RepoInfo,
+  ref: string,
+  gitPath?: string,
+): Promise<ResolvedBase | null> {
+  const tip = await revParse(repo, ref, gitPath);
+  if (!tip) return null;
+  const base = await mergeBase(repo, ref, 'HEAD', gitPath);
+  return { ref, sha: base ?? tip, mergeBase: base !== null };
+}
+
 /**
  * HEAD reflog, newest first.
  * Uses `%gd%x00%H%x00%gs` so paths/subjects containing spaces or tabs survive.

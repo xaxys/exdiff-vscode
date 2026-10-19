@@ -2,6 +2,26 @@
 
 All notable changes to the ExDiff extension are documented here.
 
+## 0.2.4
+
+### Added
+
+- **Fork-point base comparison.** **ExDiff: Open Changes with Base** now compares
+  from `git merge-base <baseRef> HEAD`, so it shows only the current branch's
+  changes. Commits that landed on the base branch after divergence are excluded.
+- `exdiff.baseRef` defaults to `auto`, which detects `origin/HEAD`,
+  `upstream/HEAD`, `origin/main`, `origin/master`, `upstream/main`,
+  `upstream/master`, `main`, `master`, then falls back to `HEAD~1`.
+- **ExDiff: Set Base Ref…** now offers **Auto-detect base branch**.
+
+### Changed
+
+- Base labels include the resolved ref and fork commit, for example
+  `origin/main@abc1234`.
+
+> Upgrading from 0.2.3: if `exdiff.baseRef` is explicitly set to `HEAD~1`,
+> change it to `auto` or to a base branch such as `origin/main`.
+
 ## 0.2.3 — First public release
 
 ### Added

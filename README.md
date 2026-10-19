@@ -43,7 +43,7 @@ ExDiff only reads Git objects. It never modifies your working tree, index, refs 
 ## Install
 
 - **Marketplace**: install [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff) from the Visual Studio Marketplace.
-- **VSIX**: `code --install-extension exdiff-0.2.3.vsix`
+- **VSIX**: `code --install-extension exdiff-0.2.4.vsix`
 
 Reload the window after installing.
 
@@ -59,7 +59,7 @@ The first time, VS Code asks whether to add the snapshot folder to the workspace
 
 | Command | What it does |
 |---|---|
-| **ExDiff: Open Changes with Base** | Current file vs `exdiff.baseRef` (default `HEAD~1`). The right side is the working tree or `HEAD`, depending on `exdiff.rightSide`. |
+| **ExDiff: Open Changes with Base** | Current file vs the **merge-base (fork point)** of `exdiff.baseRef` and `HEAD`. With the default `auto`, ExDiff picks a base branch automatically. The right side is the working tree or `HEAD`, depending on `exdiff.rightSide`. |
 | **ExDiff: Open Changes with Previous Amend** | `HEAD@{1}` vs the current version. Useful right after `git commit --amend`. Asks for confirmation when the last reflog entry is not an amend. |
 | **ExDiff: Open Changes with Previous Commit** | `HEAD~1` vs `HEAD`. Shows exactly what the latest commit changed, ignoring settings and uncommitted edits. |
 | **ExDiff: Open Changes with HEAD (uncommitted)** | `HEAD` vs the working tree, including unstaged and untracked changes. |
@@ -69,7 +69,7 @@ The first time, VS Code asks whether to add the snapshot folder to the workspace
 | **ExDiff: Show Rebase Changes** | Detects the last rebase and shows `git range-diff` commit pairs with per-pair patches. |
 | **ExDiff: Open Base Version of This File** | Opens the base revision as a normal editor, with the full language server. |
 | **ExDiff: Swap Sides** | Swaps the two sides of the current comparison. |
-| **ExDiff: Set Base Ref…** | Picks a base revision and saves it to `exdiff.baseRef`. |
+| **ExDiff: Set Base Ref…** | Picks a base branch/ref (or **Auto-detect**) and saves it to `exdiff.baseRef`. |
 | **ExDiff: Refresh** | Re-reads the Changes and Rebase views. |
 | **ExDiff: Attach Snapshots** | Adds existing snapshot folders to the workspace. |
 | **ExDiff: Detach Snapshots** | Removes snapshot folders from the workspace without deleting them. Useful to remove duplicate Find References hits. |
@@ -88,7 +88,7 @@ The first time, VS Code asks whether to add the snapshot folder to the workspace
 
 ### Changes
 
-Lists every file changed between the base and `HEAD`, with its status (added, modified, deleted, renamed…), line counts and rename mapping. Click a file to open a diff whose two sides are real files. The view refreshes on save, window focus, configuration changes and Git ref/index updates.
+Lists every file changed since the fork point (the merge-base of `exdiff.baseRef` and `HEAD`), with its status (added, modified, deleted, renamed…), line counts and rename mapping. Click a file to open a diff whose two sides are real files. The view refreshes on save, window focus, configuration changes and Git ref/index updates.
 
 ### Rebase Changes
 
@@ -107,7 +107,7 @@ Select a pair to read its patch, or open the full range diff.
 
 | Setting | Default | Description |
 |---|---|---|
-| `exdiff.baseRef` | `HEAD~1` | Revision used as the base (left side). Any revision accepted by `git rev-parse`, such as `HEAD~1`, `origin/main`, a tag or a commit SHA. |
+| `exdiff.baseRef` | `auto` | Base branch or revision. `auto` detects `origin/HEAD`, `upstream/HEAD`, `origin/main`, `origin/master`, `upstream/main`, `upstream/master`, `main`, `master`, then `HEAD~1`. The diff starts at the merge-base (fork point) with `HEAD`. |
 | `exdiff.snapshotDir` | `${repoRoot}/.exdiff` | Where snapshots are stored. Supports `${repoRoot}`, `${repoParent}`, `${repoName}` and `${slot}`. The default lives inside the repository and is self-ignored, so `git status` stays clean. Deleting the repository also deletes this folder. |
 | `exdiff.autoAttach` | `ask` | Whether snapshot folders are added to the workspace automatically: `ask`, `always` or `never`. |
 | `exdiff.rightSide` | `workingTree` | Right side of the diff: the working tree (includes uncommitted changes) or the `HEAD` snapshot. |
@@ -117,13 +117,15 @@ Select a pair to read its patch, or open the full range diff.
 
 ## Typical workflows
 
-### Review the single commit on a branch
+### Review a branch since it diverged
 
-A common workflow is to keep a branch exactly one commit ahead of a base branch and amend that commit repeatedly:
+`Open Changes with Base` compares from the **fork point** — `git merge-base <baseRef> HEAD` — so it shows only the commits on your branch, not changes that landed on the base branch after you diverged.
 
 1. Run **ExDiff: Open Changes with Base**.
-2. The left side is a real checkout of `HEAD~1`; the right side is your working file.
+2. The left side is a real checkout of the fork point; the right side is your working file.
 3. Use hover, `F12` and Find References on either side.
+
+With the default `auto`, ExDiff tries `origin/HEAD`, `upstream/HEAD`, `origin/main`, `origin/master`, `upstream/main`, `upstream/master`, `main`, `master`, then `HEAD~1`. Set `exdiff.baseRef` to a branch such as `origin/main` or `upstream/master` to be explicit.
 
 If you want to ignore uncommitted changes, set `exdiff.rightSide` to `ref`.
 
@@ -159,6 +161,7 @@ Run **ExDiff: Compare Two Refs…** and pick two branches, tags, commits or refl
 - The snapshot folder is added to the workspace with `vscode.workspace.updateWorkspaceFolders()`. That is what makes the language server index it.
 - Snapshots are updated incrementally when the revision changes, and reused when it does not.
 - The `.exdiff` folder carries its own `.gitignore`, so the snapshots, sidecars and temporary files never appear in `git status`.
+- **Base comparison** uses the merge-base (fork point) of `exdiff.baseRef` and `HEAD`, so upstream commits do not leak into the diff.
 - ExDiff never writes to your working tree, index, refs or reflog. `git write-tree` only creates an unreachable tree object for the staged-only comparison.
 
 ## Limitations

@@ -9,7 +9,7 @@ export interface ConfigSource {
 }
 
 export const DEFAULT_CONFIG: ExDiffConfig = Object.freeze({
-  baseRef: 'HEAD~1',
+  baseRef: 'auto',
   snapshotDirTemplate: '${repoRoot}/.exdiff',
   autoAttach: 'ask',
   rightSide: 'workingTree',

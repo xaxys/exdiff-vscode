@@ -24,6 +24,7 @@ const {
   parseReflog,
   rangeDiff,
   reflogEntries,
+  resolveBase,
   resolveRepo,
   revListCount,
   revParse,
@@ -568,4 +569,45 @@ test('git() throws GitError and execGit() reports failures without throwing', as
   assert.equal(missingBinary.exitCode, -1);
   assert.equal(missingBinary.stdout, '');
   assert.ok(missingBinary.stderr.length > 0, 'a spawn failure must be reported in stderr');
+});
+
+test('resolveBase uses the fork point of a base branch and HEAD', async (t) => {
+  const repo = await createRepo({ initialCommit: false });
+  t.after(() => cleanup(repo));
+
+  commitFile(repo, 'base.txt', 'base\n', 'base');
+  const fork = git(repo, ['rev-parse', 'HEAD']).trim();
+
+  git(repo, ['checkout', '-b', 'feature']);
+  commitFile(repo, 'feature.txt', 'feature\n', 'feature work');
+
+  git(repo, ['checkout', 'main']);
+  commitFile(repo, 'main.txt', 'main\n', 'main moved');
+  git(repo, ['checkout', 'feature']);
+
+  const auto = await resolveBase(repo.repoInfo, 'auto');
+  assert.ok(auto, 'auto must resolve a base');
+  assert.equal(auto.ref, 'main');
+  assert.equal(auto.sha, fork, 'the base must be the merge-base, not the main tip');
+  assert.equal(auto.mergeBase, true);
+
+  const explicit = await resolveBase(repo.repoInfo, 'main');
+  assert.ok(explicit);
+  assert.equal(explicit.sha, fork);
+  assert.equal(explicit.mergeBase, true);
+});
+
+test('resolveBase auto falls back to HEAD~1 on the only branch', async (t) => {
+  const repo = await createRepo();
+  t.after(() => cleanup(repo));
+
+  commitFile(repo, 'second.txt', 'second\n', 'second');
+  const parent = git(repo, ['rev-parse', 'HEAD~1']).trim();
+  const head = git(repo, ['rev-parse', 'HEAD']).trim();
+
+  const base = await resolveBase(repo.repoInfo, 'auto');
+  assert.ok(base);
+  assert.equal(base.ref, 'HEAD~1');
+  assert.equal(base.sha, parent);
+  assert.notEqual(base.sha, head);
 });

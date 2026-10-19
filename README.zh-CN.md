@@ -43,7 +43,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 ## 安装
 
 - **Marketplace**：从 Visual Studio Marketplace 安装 [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff)。
-- **VSIX**：`code --install-extension exdiff-0.2.3.vsix`
+- **VSIX**：`code --install-extension exdiff-0.2.4.vsix`
 
 安装后重载窗口。
 
@@ -59,7 +59,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 
 | 命令 | 作用 |
 |---|---|
-| **ExDiff: Open Changes with Base** | 当前文件 vs `exdiff.baseRef`（默认 `HEAD~1`）。右侧由 `exdiff.rightSide` 决定：工作区或 `HEAD`。 |
+| **ExDiff: Open Changes with Base** | 当前文件 vs `exdiff.baseRef` 与 `HEAD` 的 **merge-base（分叉点）**。默认 `auto` 会自动选择 base 分支。右侧由 `exdiff.rightSide` 决定：工作区或 `HEAD`。 |
 | **ExDiff: Open Changes with Previous Amend** | `HEAD@{1}` vs 当前版本。适合刚执行完 `git commit --amend` 时使用。最后一次 reflog 不是 amend 时会先确认。 |
 | **ExDiff: Open Changes with Previous Commit** | `HEAD~1` vs `HEAD`。只看最新一个 commit 改了什么，不受设置和未提交改动影响。 |
 | **ExDiff: Open Changes with HEAD (uncommitted)** | `HEAD` vs 工作区，包含未暂存和未跟踪改动。 |
@@ -69,7 +69,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 | **ExDiff: Show Rebase Changes** | 推断最近一次 rebase，显示 `git range-diff` 的 commit 对和逐对 patch。 |
 | **ExDiff: Open Base Version of This File** | 把 base 版本作为普通编辑器打开，获得完整语言服务器能力。 |
 | **ExDiff: Swap Sides** | 交换当前比较的左右两侧。 |
-| **ExDiff: Set Base Ref…** | 选择 base revision 并写入 `exdiff.baseRef`。 |
+| **ExDiff: Set Base Ref…** | 选择 base 分支/ref（或 **Auto-detect**）并写入 `exdiff.baseRef`。 |
 | **ExDiff: Refresh** | 重新读取 Changes / Rebase 视图。 |
 | **ExDiff: Attach Snapshots** | 把已存在的快照目录加入工作区。 |
 | **ExDiff: Detach Snapshots** | 从工作区移除快照目录，但不删除磁盘文件。用于消除 Find References 的重复结果。 |
@@ -88,7 +88,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 
 ### Changes
 
-列出 base 与 `HEAD` 之间所有改动文件，显示状态（新增、修改、删除、rename…）、增删行数和 rename 映射。点击文件打开两侧都是真实文件的 diff。保存文件、窗口重新获得焦点、配置变化和 Git ref/index 变化时自动刷新。
+列出从分叉点（`exdiff.baseRef` 与 `HEAD` 的 merge-base）以来所有改动文件，显示状态（新增、修改、删除、rename…）、增删行数和 rename 映射。点击文件打开两侧都是真实文件的 diff。保存文件、窗口重新获得焦点、配置变化和 Git ref/index 变化时自动刷新。
 
 ### Rebase Changes
 
@@ -107,7 +107,7 @@ rebase 之后列出 `git range-diff` 报告的 commit 对：
 
 | 设置 | 默认 | 说明 |
 |---|---|---|
-| `exdiff.baseRef` | `HEAD~1` | base（左侧）revision。任意 `git rev-parse` 可解析的值，例如 `HEAD~1`、`origin/main`、tag、commit SHA。 |
+| `exdiff.baseRef` | `auto` | base 分支或 revision。`auto` 会依次检测 `origin/HEAD`、`upstream/HEAD`、`origin/main`、`origin/master`、`upstream/main`、`upstream/master`、`main`、`master`，最后回退 `HEAD~1`。diff 从它与 `HEAD` 的 merge-base（分叉点）开始。 |
 | `exdiff.snapshotDir` | `${repoRoot}/.exdiff` | 快照存放位置。支持 `${repoRoot}`、`${repoParent}`、`${repoName}`、`${slot}`。默认在仓库内，并带自忽略 `.gitignore`，`git status` 保持干净。删除仓库会一并删除它。 |
 | `exdiff.autoAttach` | `ask` | 是否自动把快照目录加入工作区：`ask` / `always` / `never`。 |
 | `exdiff.rightSide` | `workingTree` | diff 右侧：工作区（含未提交改动）或 `HEAD` 快照。 |
@@ -117,13 +117,15 @@ rebase 之后列出 `git range-diff` 报告的 commit 对：
 
 ## 典型工作流
 
-### 查看分支上的单个 commit
+### 查看分支自分叉点以来的改动
 
-常见做法是让分支始终比 base 多一个 commit，并反复 amend：
+`Open Changes with Base` 从 **分叉点**（`git merge-base <baseRef> HEAD`）开始比较，因此只显示你分支上的改动，不会混入分叉后 base 分支新增的 commit。
 
 1. 运行 **ExDiff: Open Changes with Base**。
-2. 左侧是 `HEAD~1` 的真实快照，右侧是你的工作文件。
+2. 左侧是分叉点的真实快照，右侧是你的工作文件。
 3. 在任意一侧使用 hover、`F12`、Find References。
+
+默认 `auto` 会依次尝试 `origin/HEAD`、`upstream/HEAD`、`origin/main`、`origin/master`、`upstream/main`、`upstream/master`、`main`、`master`，最后回退 `HEAD~1`。也可以把 `exdiff.baseRef` 明确设为 `origin/main`、`upstream/master` 等分支。
 
 如果想忽略未提交改动，把 `exdiff.rightSide` 设为 `ref`。
 
@@ -159,6 +161,7 @@ rebase 之后列出 `git range-diff` 报告的 commit 对：
 - 通过 `vscode.workspace.updateWorkspaceFolders()` 把快照目录加入工作区，语言服务器才会索引它。
 - revision 变化时增量更新快照；revision 不变时直接复用。
 - `.exdiff` 自带 `.gitignore`，所以快照、sidecar 和临时文件不会出现在 `git status` 中。
+- **base 比较**使用 `exdiff.baseRef` 与 `HEAD` 的 merge-base（分叉点），不会把 base 分支后来新增的 commit 混进来。
 - ExDiff 不写你的工作区、index、ref 或 reflog。`git write-tree` 只会为 staged-only 比较写入一个不可达的 tree 对象。
 
 ## 限制

@@ -28,7 +28,7 @@ test('readConfig falls back to DEFAULT_CONFIG for an empty source', () => {
   const config = readConfig(source({}));
 
   assert.deepEqual(config, {
-    baseRef: 'HEAD~1',
+    baseRef: 'auto',
     snapshotDirTemplate: '${repoRoot}/.exdiff',
     autoAttach: 'ask',
     rightSide: 'workingTree',
@@ -141,10 +141,10 @@ test('readConfig rejects malformed numbers and keeps positive integers', () => {
 });
 
 test('readConfig rejects empty strings and non-strings for string settings', () => {
-  assert.equal(readConfig(source({ 'exdiff.baseRef': '   ' })).baseRef, 'HEAD~1');
-  assert.equal(readConfig(source({ 'exdiff.baseRef': '' })).baseRef, 'HEAD~1');
-  assert.equal(readConfig(source({ 'exdiff.baseRef': null })).baseRef, 'HEAD~1');
-  assert.equal(readConfig(source({ 'exdiff.baseRef': 42 })).baseRef, 'HEAD~1');
+  assert.equal(readConfig(source({ 'exdiff.baseRef': '   ' })).baseRef, 'auto');
+  assert.equal(readConfig(source({ 'exdiff.baseRef': '' })).baseRef, 'auto');
+  assert.equal(readConfig(source({ 'exdiff.baseRef': null })).baseRef, 'auto');
+  assert.equal(readConfig(source({ 'exdiff.baseRef': 42 })).baseRef, 'auto');
   assert.equal(readConfig(source({ 'exdiff.baseRef': '  origin/main  ' })).baseRef, 'origin/main');
 
   assert.equal(readConfig(source({ 'exdiff.gitPath': '  ' })).gitPath, 'git');

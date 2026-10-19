@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import type { ChangedFile, ExDiffConfig, RepoInfo } from '../core/types';
-import { headSha, reflogEntries, revParse, writeTreeFromIndex } from '../core/git';
+import { headSha, reflogEntries, resolveBase, revParse, writeTreeFromIndex, type ResolvedBase } from '../core/git';
 import { ensureSnapshot } from '../core/snapshot';
 import { OPEN_CHANGED_FILE_COMMAND, type ChangesView } from './changesView';
 import { diffTitle, openFileDiff, type Comparison, type Side } from './diff';
@@ -220,6 +220,7 @@ async function openFileWithBase(
 
   let missingRepo = 0;
   let missingBase = false;
+  const baseCache = new Map<string, ResolvedBase | null>();
 
   for (const targetUri of targets) {
     const target = await resolveTarget(targetUri, cfg);
@@ -228,20 +229,25 @@ async function openFileWithBase(
       continue;
     }
 
-    const baseSha = await revParse(target.repo, cfg.baseRef, cfg.gitPath);
-    if (!baseSha) {
+    let base = baseCache.get(target.repo.root);
+    if (base === undefined) {
+      base = await resolveBase(target.repo, cfg.baseRef, cfg.gitPath);
+      baseCache.set(target.repo.root, base);
+    }
+    if (!base) {
       missingBase = true;
       break;
     }
 
+    const baseLabel = `${base.ref}@${base.sha.slice(0, 7)}`;
     const right = await resolveRightSide(target.repo, cfg);
     if (!right) return;
 
     await openFileDiff(target.repo, cfg, host.context, {
-      left: { kind: 'snapshot', slot: 'base', sha: baseSha, label: cfg.baseRef },
+      left: { kind: 'snapshot', slot: 'base', sha: base.sha, label: baseLabel },
       right,
       relPath: target.relPath,
-      title: diffTitle(target.relPath, cfg.baseRef, right.label),
+      title: diffTitle(target.relPath, baseLabel, right.label),
     });
   }
 
@@ -380,20 +386,21 @@ async function openBaseSide(host: UiHost, uri: vscode.Uri | undefined): Promise<
   const target = await singleTarget(host, uri);
   if (!target) return;
 
-  const baseSha = await revParse(target.repo, cfg.baseRef, cfg.gitPath);
-  if (!baseSha) {
+  const base = await resolveBase(target.repo, cfg.baseRef, cfg.gitPath);
+  if (!base) {
     await warn(missingBaseRef(cfg.baseRef));
     return;
   }
 
+  const baseLabel = `${base.ref}@${base.sha.slice(0, 7)}`;
   const paths = await withExProgress(
-    vscode.l10n.t('Preparing snapshot "base" ({0})…', cfg.baseRef),
-    async (report) => await ensureSnapshot(target.repo, 'base', baseSha, cfg, { onProgress: report }),
+    vscode.l10n.t('Preparing snapshot "base" ({0})…', baseLabel),
+    async (report) => await ensureSnapshot(target.repo, 'base', base.sha, cfg, { onProgress: report }),
   );
 
   const absolute = resolveInside(paths.dir, target.relPath);
   if (!(await fileExists(absolute))) {
-    await info(vscode.l10n.t('ExDiff: {0} does not exist in {1}', target.relPath, cfg.baseRef));
+    await info(vscode.l10n.t('ExDiff: {0} does not exist in {1}', target.relPath, baseLabel));
     return;
   }
 
@@ -448,6 +455,9 @@ function notInRepo(): string {
 
 /** Shared notification text for an unresolvable `exdiff.baseRef`. */
 function missingBaseRef(baseRef: string): string {
+  if (baseRef.trim() === 'auto') {
+    return vscode.l10n.t('ExDiff: Cannot detect a base branch (exdiff.baseRef)');
+  }
   return vscode.l10n.t('ExDiff: Cannot find base ref "{0}" (exdiff.baseRef)', baseRef);
 }
 

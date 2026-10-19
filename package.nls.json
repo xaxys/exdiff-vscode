@@ -19,7 +19,7 @@
   "view.changes.name": "Changes",
   "view.rebase.name": "Rebase Changes",
   "configuration.title": "ExDiff",
-  "setting.baseRef.description": "Git revision used as the **base** (left-hand side) of the comparison. Any revision accepted by `git rev-parse` works, for example `HEAD~1`, `origin/main`, a tag name or a commit SHA.",
+  "setting.baseRef.description": "Base branch or revision. `auto` detects the remote default branch (`origin/HEAD` or `upstream/HEAD`), then `origin/main`, `origin/master`, `upstream/main`, `upstream/master`, `main`, `master`, and falls back to `HEAD~1`. **ExDiff: Open Changes with Base** compares from the merge-base (fork point) with `HEAD`.",
   "setting.snapshotDir.description": "Directory that holds the materialized snapshots. Supported variables: `${repoRoot}` (repository root), `${repoParent}` (parent directory of the repository), `${repoName}` (repository folder name) and `${slot}` (snapshot slot). Defaults to `${repoRoot}/.exdiff`, which lives inside the repository and is git-ignored so `git status` stays clean. Relative templates resolve against the repository root.",
   "setting.snapshotRetentionDays.description": "Number of days a snapshot is kept before it is pruned automatically. At startup only the ad-hoc `ref-*` slots are pruned; **ExDiff: Prune Stale Snapshots** prunes every expired slot. Set to `0` to turn automatic pruning off.",
   "setting.autoAttach.description": "Whether the snapshot folders are added to the workspace as extra workspace folders. This is what makes language features (hover, Go to Definition, Find References, diagnostics) work on the base side of the diff.",

@@ -1,4 +1,8 @@
 {
+  "ExDiff: Cannot detect a base branch (exdiff.baseRef)": "ExDiff: 无法检测 base 分支（exdiff.baseRef）",
+  "Cannot detect a base branch (exdiff.baseRef)": "无法检测 base 分支（exdiff.baseRef）",
+  "$(sync) Auto-detect base branch": "$(sync) 自动检测 base 分支",
+  "origin/HEAD → upstream/HEAD → origin/main → origin/master → upstream/main → upstream/master → main → master → HEAD~1": "origin/HEAD → upstream/HEAD → origin/main → origin/master → upstream/main → upstream/master → main → master → HEAD~1",
   "Loading…": "加载中…",
   "Open Changes": "打开改动",
   "No two refs selected for comparison yet": "尚未选择要比较的两个 ref",

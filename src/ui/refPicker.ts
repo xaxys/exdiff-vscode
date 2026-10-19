@@ -14,6 +14,7 @@ import { resolveActiveRepo } from './repo';
 interface RefPickItem extends vscode.QuickPickItem {
   ref?: RefInfo;
   custom?: boolean;
+  auto?: boolean;
 }
 
 /** QuickPick separator groups, built lazily so the titles go through l10n. */
@@ -132,6 +133,14 @@ export async function pickBaseRef(host: UiHost, view: ChangesView): Promise<void
   );
   const items = buildItems(refs);
   items.unshift({ label: vscode.l10n.t('$(edit) Enter a custom revision…'), alwaysShow: true, custom: true });
+  items.unshift({
+    label: vscode.l10n.t('$(sync) Auto-detect base branch'),
+    description: vscode.l10n.t(
+      'origin/HEAD → upstream/HEAD → origin/main → origin/master → upstream/main → upstream/master → main → master → HEAD~1',
+    ),
+    alwaysShow: true,
+    auto: true,
+  });
 
   const picked = await vscode.window.showQuickPick(items, {
     title: vscode.l10n.t('Base ref'),
@@ -143,7 +152,9 @@ export async function pickBaseRef(host: UiHost, view: ChangesView): Promise<void
   if (!picked) return;
 
   let value: string | undefined;
-  if (picked.custom) {
+  if (picked.auto) {
+    value = 'auto';
+  } else if (picked.custom) {
     value = await vscode.window.showInputBox({
       title: vscode.l10n.t('Base ref'),
       prompt: vscode.l10n.t(

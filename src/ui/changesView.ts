@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { ChangedFile, ExDiffConfig, FileStatus, RepoInfo } from '../core/types';
-import { changedFiles, headSha, revParse } from '../core/git';
+import { changedFiles, headSha, resolveBase } from '../core/git';
 import type { Comparison } from './diff';
 import { openPathDiff } from './diff';
 import { errorMessage } from './errors';
@@ -209,23 +209,27 @@ export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode
 
     this.watch(repo);
 
-    const baseSha = await revParse(repo, cfg.baseRef, cfg.gitPath);
-    if (!baseSha) {
+    const base = await resolveBase(repo, cfg.baseRef, cfg.gitPath);
+    if (!base) {
       return {
         comparison: null,
-        message: vscode.l10n.t('Cannot find base ref "{0}" (exdiff.baseRef)', cfg.baseRef),
+        message:
+          cfg.baseRef.trim() === 'auto'
+            ? vscode.l10n.t('Cannot detect a base branch (exdiff.baseRef)')
+            : vscode.l10n.t('Cannot find base ref "{0}" (exdiff.baseRef)', cfg.baseRef),
       };
     }
 
     const head = await headSha(repo, cfg.gitPath);
     if (!head) return { comparison: null, message: vscode.l10n.t('The repository has no commits yet') };
 
+    const baseLabel = `${base.ref}@${base.sha.slice(0, 7)}`;
     return {
       comparison: {
         repo,
-        left: { kind: 'snapshot', slot: 'base', sha: baseSha, label: cfg.baseRef },
+        left: { kind: 'snapshot', slot: 'base', sha: base.sha, label: baseLabel },
         right: { kind: 'snapshot', slot: 'head', sha: head, label: 'HEAD' },
-        leftLabel: cfg.baseRef,
+        leftLabel: baseLabel,
         rightLabel: 'HEAD',
       },
       message: null,
