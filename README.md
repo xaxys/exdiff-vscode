@@ -43,7 +43,7 @@ ExDiff only reads Git objects. It never modifies your working tree, index, refs 
 ## Install
 
 - **Marketplace**: install [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff) from the Visual Studio Marketplace.
-- **VSIX**: `code --install-extension exdiff-0.2.6.vsix`
+- **VSIX**: `code --install-extension exdiff-0.2.7.vsix`
 
 Reload the window after installing.
 
@@ -65,6 +65,7 @@ The first time, VS Code asks whether to add the snapshot folder to the workspace
 | **ExDiff: Open Changes with HEAD (uncommitted)** | `HEAD` vs the working tree, including unstaged and untracked changes. |
 | **ExDiff: Open Changes with HEAD (staged only)** | `HEAD` vs the index, so only staged changes are shown. |
 | **ExDiff: Show Changed Files** | Focuses the **Changes** view for the current repository. |
+| **ExDiff: Show Amend Changes** | Focuses the **Amend Changes** view for the current repository. |
 | **ExDiff: Compare Two Refs…** | Picks any two branches, tags, commits or reflog entries and lists the changed files. |
 | **ExDiff: Show Rebase Changes** | Detects the last rebase and shows `git range-diff` commit pairs with per-pair patches. |
 | **ExDiff: Open Base Version of This File** | Opens the base revision as a normal editor, with the full language server. |
@@ -82,13 +83,17 @@ The first time, VS Code asks whether to add the snapshot folder to the workspace
 - **Editor title bar** — compare with base, open the base version.
 - **Editor context menu** — the `ExDiff` group.
 - **Explorer context menu** — on files: compare with base.
-- **Activity Bar** — the ExDiff icon opens **Changes** and **Rebase Changes** views.
+- **Activity Bar** — the ExDiff icon opens **Changes**, **Amend Changes** and **Rebase Changes** views.
 
 ## Views
 
 ### Changes
 
 Lists every file changed since the fork point (the merge-base of `exdiff.baseRef` and `HEAD`), with its status (added, modified, deleted, renamed…), line counts and rename mapping. Click a file to open a diff whose two sides are real files. The view refreshes on save, window focus, configuration changes and Git ref/index updates.
+
+### Amend Changes
+
+Lists the files changed by the last `git commit --amend` (`HEAD@{1} ↔ HEAD`). Click a file to open a real-file diff of the amend. If the last HEAD update was not an amend, the view says so instead of showing a stale comparison.
 
 ### Rebase Changes
 

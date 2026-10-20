@@ -24,12 +24,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const host = createHost(context, output);
   const changesView = new ChangesView(host);
+  const amendView = new ChangesView(host, { mode: 'amend', viewId: 'exdiff.amend' });
   const rebaseView = new RebaseView(host);
 
-  context.subscriptions.push(changesView, rebaseView);
+  context.subscriptions.push(changesView, amendView, rebaseView);
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(RANGE_SCHEME, rebaseView));
 
-  registerCommands(host, changesView, rebaseView);
+  registerCommands(host, changesView, amendView, rebaseView);
 
   output.appendLine(`[${new Date().toISOString()}] ExDiff activated`);
 

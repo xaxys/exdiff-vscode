@@ -2,7 +2,7 @@
   "name": "exdiff",
   "displayName": "ExDiff",
   "description": "Review Git revisions in VS Code with real on-disk snapshots, so hover, Go to Definition, Find References and diagnostics keep working on both sides of the diff.",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "publisher": "xaxys",
   "license": "MIT",
   "repository": {
@@ -79,6 +79,11 @@
         "icon": "$(list-tree)"
       },
       {
+        "command": "exdiff.showAmendChanges",
+        "title": "%command.showAmendChanges.title%",
+        "icon": "$(git-commit)"
+      },
+      {
         "command": "exdiff.compareRefs",
         "title": "%command.compareRefs.title%",
         "icon": "$(git-compare)"
@@ -140,6 +145,10 @@
         {
           "id": "exdiff.changes",
           "name": "%view.changes.name%"
+        },
+        {
+          "id": "exdiff.amend",
+          "name": "%view.amend.name%"
         },
         {
           "id": "exdiff.rebase",
@@ -213,6 +222,11 @@
         {
           "command": "exdiff.swapSides",
           "when": "view == exdiff.changes",
+          "group": "navigation"
+        },
+        {
+          "command": "exdiff.refresh",
+          "when": "view == exdiff.amend",
           "group": "navigation"
         },
         {

@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { ChangedFile, ExDiffConfig, FileStatus, RepoInfo } from '../core/types';
-import { changedFiles, headSha, resolveBase } from '../core/git';
+import { changedFiles, headSha, reflogEntries, resolveBase, revParse } from '../core/git';
 import type { Comparison } from './diff';
 import { openPathDiff } from './diff';
 import { errorMessage } from './errors';
@@ -29,13 +29,25 @@ type ChangesNode =
   | { kind: 'file'; file: ChangedFile; comparison: Comparison }
   | { kind: 'info'; label: string; icon?: string };
 
+export type ChangesViewMode = 'base' | 'amend';
+
+export interface ChangesViewOptions {
+  mode?: ChangesViewMode;
+  viewId?: string;
+}
+
 /**
- * Tree view listing the files changed between two revisions (base → HEAD by
- * default). The view keeps its own live state: `setComparison()` turns it into
- * an arbitrary ref/ref comparison for `ExDiff: Compare Two Refs…`.
+ * Tree view listing the files changed between two revisions.
+ *
+ * - `base` (the default) follows `exdiff.baseRef` → HEAD.
+ * - `amend` shows the last `git commit --amend` (`HEAD@{1}` → HEAD).
+ *
+ * The view keeps its own live state: `setComparison()` turns it into an
+ * arbitrary ref/ref comparison for `ExDiff: Compare Two Refs…` (base mode).
  */
 export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode.Disposable {
   private readonly host: UiHost;
+  private readonly mode: ChangesViewMode;
   private readonly view: vscode.TreeView<ChangesNode>;
   private readonly emitter = new vscode.EventEmitter<ChangesNode | undefined | void>();
   private readonly disposables: vscode.Disposable[] = [];
@@ -53,9 +65,10 @@ export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode
   private timer: ReturnType<typeof setTimeout> | undefined;
   private disposed = false;
 
-  constructor(host: UiHost) {
+  constructor(host: UiHost, options: ChangesViewOptions = {}) {
     this.host = host;
-    this.view = vscode.window.createTreeView('exdiff.changes', {
+    this.mode = options.mode ?? 'base';
+    this.view = vscode.window.createTreeView(options.viewId ?? 'exdiff.changes', {
       treeDataProvider: this,
       showCollapseAll: false,
     });
@@ -208,7 +221,15 @@ export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode
     }
 
     this.watch(repo);
+    return this.mode === 'amend'
+      ? await this.loadAmendComparison(repo, cfg)
+      : await this.loadBaseComparison(repo, cfg);
+  }
 
+  private async loadBaseComparison(
+    repo: RepoInfo,
+    cfg: ExDiffConfig,
+  ): Promise<{ comparison: Comparison | null; message: string | null }> {
     const base = await resolveBase(repo, cfg.baseRef, cfg.gitPath);
     if (!base) {
       return {
@@ -231,6 +252,45 @@ export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode
         right: { kind: 'snapshot', slot: 'head', sha: head, label: 'HEAD' },
         leftLabel: baseLabel,
         rightLabel: 'HEAD',
+      },
+      message: null,
+    };
+  }
+
+  private async loadAmendComparison(
+    repo: RepoInfo,
+    cfg: ExDiffConfig,
+  ): Promise<{ comparison: Comparison | null; message: string | null }> {
+    const head = await headSha(repo, cfg.gitPath);
+    if (!head) {
+      return { comparison: null, message: vscode.l10n.t('The repository has no commits yet') };
+    }
+
+    const [latest] = await reflogEntries(repo, cfg.gitPath, 1);
+    if (!latest || !latest.message.startsWith('commit (amend)')) {
+      return {
+        comparison: null,
+        message: vscode.l10n.t('The last HEAD update was not an amend'),
+      };
+    }
+
+    const amendSha = await revParse(repo, 'HEAD@{1}', cfg.gitPath);
+    if (!amendSha) {
+      return {
+        comparison: null,
+        message: vscode.l10n.t('There is no previous commit to compare with the amend'),
+      };
+    }
+
+    const leftLabel = `HEAD@{1}@${amendSha.slice(0, 7)}`;
+    const rightLabel = `HEAD@${head.slice(0, 7)}`;
+    return {
+      comparison: {
+        repo,
+        left: { kind: 'snapshot', slot: 'amend', sha: amendSha, label: leftLabel },
+        right: { kind: 'snapshot', slot: 'head', sha: head, label: rightLabel },
+        leftLabel,
+        rightLabel,
       },
       message: null,
     };
@@ -309,7 +369,9 @@ export class ChangesView implements vscode.TreeDataProvider<ChangesNode>, vscode
 
   private onDidChangeConfiguration(event: vscode.ConfigurationChangeEvent): void {
     if (!event.affectsConfiguration('exdiff')) return;
-    if (!this.explicit && event.affectsConfiguration('exdiff.baseRef')) this.comparison = null;
+    if (this.mode === 'base' && !this.explicit && event.affectsConfiguration('exdiff.baseRef')) {
+      this.comparison = null;
+    }
     this.scheduleRefresh();
   }
 

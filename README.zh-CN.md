@@ -43,7 +43,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 ## 安装
 
 - **Marketplace**：从 Visual Studio Marketplace 安装 [ExDiff](https://marketplace.visualstudio.com/items?itemName=xaxys.ExDiff)。
-- **VSIX**：`code --install-extension exdiff-0.2.6.vsix`
+- **VSIX**：`code --install-extension exdiff-0.2.7.vsix`
 
 安装后重载窗口。
 
@@ -65,6 +65,7 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 | **ExDiff: Open Changes with HEAD (uncommitted)** | `HEAD` vs 工作区，包含未暂存和未跟踪改动。 |
 | **ExDiff: Open Changes with HEAD (staged only)** | `HEAD` vs index，只看已暂存改动。 |
 | **ExDiff: Show Changed Files** | 聚焦当前仓库的 **Changes** 视图。 |
+| **ExDiff: Show Amend Changes** | 聚焦当前仓库的 **Amend Changes** 视图。 |
 | **ExDiff: Compare Two Refs…** | 选择任意两个分支、tag、commit 或 reflog 条目，列出改动文件。 |
 | **ExDiff: Show Rebase Changes** | 推断最近一次 rebase，显示 `git range-diff` 的 commit 对和逐对 patch。 |
 | **ExDiff: Open Base Version of This File** | 把 base 版本作为普通编辑器打开，获得完整语言服务器能力。 |
@@ -82,13 +83,17 @@ ExDiff 只读取 Git 对象，不会修改你的工作区、index、ref 或 refl
 - **编辑器标题栏**：与 base 比较、打开 base 版本。
 - **编辑器右键**：`ExDiff` 分组。
 - **资源管理器右键**：文件上可「与 base 比较」。
-- **Activity Bar**：ExDiff 图标打开 **Changes** 和 **Rebase Changes** 视图。
+- **Activity Bar**：ExDiff 图标打开 **Changes**、**Amend Changes** 和 **Rebase Changes** 视图。
 
 ## 视图
 
 ### Changes
 
 列出从分叉点（`exdiff.baseRef` 与 `HEAD` 的 merge-base）以来所有改动文件，显示状态（新增、修改、删除、rename…）、增删行数和 rename 映射。点击文件打开两侧都是真实文件的 diff。保存文件、窗口重新获得焦点、配置变化和 Git ref/index 变化时自动刷新。
+
+### Amend Changes
+
+列出最近一次 `git commit --amend` 改动的文件（`HEAD@{1} ↔ HEAD`）。点击文件打开该次 amend 的真实文件 diff。如果最近一次 HEAD 更新不是 amend，视图会直接说明，而不是显示过期的比较。
 
 ### Rebase Changes
 

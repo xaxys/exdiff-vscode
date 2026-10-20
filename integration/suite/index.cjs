@@ -20,6 +20,7 @@ const COMMANDS = [
   'exdiff.openFileWorkingTree',
   'exdiff.openFileStaged',
   'exdiff.showChanges',
+  'exdiff.showAmendChanges',
   'exdiff.compareRefs',
   'exdiff.showRebaseChanges',
   'exdiff.openBaseSide',

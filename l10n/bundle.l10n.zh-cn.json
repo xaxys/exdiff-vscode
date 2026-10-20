@@ -1,4 +1,6 @@
 {
+  "The last HEAD update was not an amend": "最近一次 HEAD 更新不是 amend",
+  "There is no previous commit to compare with the amend": "没有可用于 amend 比较的上一个 commit",
   "ExDiff: Cannot detect a base branch (exdiff.baseRef)": "ExDiff: 无法检测 base 分支（exdiff.baseRef）",
   "Cannot detect a base branch (exdiff.baseRef)": "无法检测 base 分支（exdiff.baseRef）",
   "$(sync) Auto-detect base branch": "$(sync) 自动检测 base 分支",

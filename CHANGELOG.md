@@ -2,6 +2,17 @@
 
 All notable changes to the ExDiff extension are documented here.
 
+## 0.2.7
+
+### Added
+
+- **Amend Changes** view in the ExDiff Activity Bar. It lists the files changed
+  by the last `git commit --amend` (`HEAD@{1} ↔ HEAD`); clicking a file opens a
+  real-file diff of the amend.
+- **ExDiff: Show Amend Changes** command to focus the view.
+- When the last HEAD update was not an amend, the view explains that instead of
+  showing a stale comparison.
+
 ## 0.2.6
 
 ### Fixed

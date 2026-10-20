@@ -27,7 +27,12 @@ import { attachSnapshots, cleanSnapshots, detachSnapshots, ensureAttached } from
  * commands used by the tree items. All handlers share the error wrapper from
  * `errors.ts` (red notification + "Show Details" → output channel).
  */
-export function registerCommands(host: UiHost, changesView: ChangesView, rebaseView: RebaseView): void {
+export function registerCommands(
+  host: UiHost,
+  changesView: ChangesView,
+  amendView: ChangesView,
+  rebaseView: RebaseView,
+): void {
   const { context, output } = host;
 
   registerCommand<[vscode.Uri | undefined, vscode.Uri[] | undefined]>(
@@ -67,6 +72,11 @@ export function registerCommands(host: UiHost, changesView: ChangesView, rebaseV
     await vscode.commands.executeCommand('exdiff.changes.focus');
   });
 
+  registerCommand(context, output, 'exdiff.showAmendChanges', async () => {
+    await amendView.refresh();
+    await vscode.commands.executeCommand('exdiff.amend.focus');
+  });
+
   registerCommand(context, output, 'exdiff.compareRefs', async () => {
     await compareRefs(host, changesView);
   });
@@ -85,6 +95,7 @@ export function registerCommands(host: UiHost, changesView: ChangesView, rebaseV
 
   registerCommand(context, output, 'exdiff.refresh', async () => {
     await changesView.refresh();
+    await amendView.refresh();
     await rebaseView.refresh();
   });
 
